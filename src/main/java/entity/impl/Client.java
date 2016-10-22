@@ -33,6 +33,7 @@ public class Client implements BasicInterface{
             DataOutputStream clientOutput = new DataOutputStream(this.socket.getOutputStream());
             clientInput = new BufferedReader(new InputStreamReader(this.socket.getInputStream()));
             InputStream in = socket.getInputStream();
+            System.out.println(clientInput.readLine());
             while (!isClosed) {
                 input = userInput.readLine();
                 clientOutput.writeBytes(input + "\n");
@@ -42,10 +43,9 @@ public class Client implements BasicInterface{
                     System.out.println("Received: " + output);
                 }
                 else if(clientCommand.equals("DOWNLOAD")){
-                    receivedFile = input.substring(input.lastIndexOf('\\')+1);
-
-
+                    receivedFile = "downloaded_" + input.split(" ")[1];
                     String isContinue = clientInput.readLine();
+                    System.out.println(isContinue);
                     boolean append = false;
                     if(isContinue.equals("Continue"))
                     {
@@ -53,6 +53,7 @@ public class Client implements BasicInterface{
                         append = true;
                     }
                     String inputFromServer = clientInput.readLine();
+                    System.out.println(inputFromServer);
                     int numPackets = tryParse(inputFromServer);
                     try {
                         out = new FileOutputStream(receivedFile, append);
@@ -168,6 +169,7 @@ public class Client implements BasicInterface{
     }
 
     private static Integer tryParse(String text) {
+
         try {
             return Integer.parseInt(text);
         } catch (NumberFormatException e) {

@@ -34,6 +34,7 @@ public class Server implements BasicInterface{
 
     private boolean firstClient = true;
     private boolean expired = false;
+    private boolean downloadComplete = false;
 
     @Override
     public void start() throws IOException {
@@ -42,11 +43,13 @@ public class Server implements BasicInterface{
 
         while (true) {
             socket = serverSocket.accept();
+
             newClientAddress = socket.getRemoteSocketAddress().toString().substring(0, socket.getRemoteSocketAddress().toString().lastIndexOf(":"));
 
             serverInput = new BufferedReader(new InputStreamReader(socket.getInputStream()));
             serverOutput = new DataOutputStream(socket.getOutputStream());
             out = socket.getOutputStream();
+            sendData("Connected to server");
             while (!isClosed) {
                 try {
                     System.out.println("Waiting for command... ");
@@ -73,6 +76,7 @@ public class Server implements BasicInterface{
                     serverInput = new BufferedReader(new InputStreamReader(socket.getInputStream()));
                     serverOutput = new DataOutputStream(socket.getOutputStream());
                     out = socket.getOutputStream();
+                    sendData("Connected to server");
 
                     /*try {
                         System.out.println("Lost connection to client. Waiting...");
@@ -110,13 +114,14 @@ public class Server implements BasicInterface{
             if(!firstClient) {
                 System.out.println(clientAddres);
                 System.out.println(newClientAddress);
-                if (clientAddres.equals(newClientAddress) && !expired && clientFileName.equals(command[1])) {
+                if (clientAddres.equals(newClientAddress) && !expired && clientFileName.equals(command[1]) && !downloadComplete) {
                     sendData("Continue");
                     in.close();
                     in = new FileInputStream(file);
                     //currentPacket--;
                     in.skip(currentPacket*8*1024);
                 } else {
+                    downloadComplete = false;
                     System.out.println(newClientAddress);
                     clientFileName = command[1];
                     file = new File(clientFileName);
@@ -127,6 +132,7 @@ public class Server implements BasicInterface{
                 }
             }
             else {
+                downloadComplete = false;
                 System.out.println(newClientAddress);
                 clientFileName = command[1];
                 file = new File(clientFileName);
@@ -161,7 +167,7 @@ public class Server implements BasicInterface{
 
                 System.out.println("File closed.");
                 currentPacket = 0;
-                expired = true;
+                downloadComplete = true;
 
 
                 /*
@@ -271,7 +277,7 @@ public class Server implements BasicInterface{
     }
 
     private void sendData(String outputData) throws IOException {
-        this.serverOutput.writeBytes(outputData + "\n");
+        serverOutput.writeBytes(outputData + "\n");
         serverOutput.flush();
     }
 
