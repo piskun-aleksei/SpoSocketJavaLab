@@ -69,6 +69,7 @@ public class Client implements BasicInterface{
                             System.out.println("Packet: " + packet + " out of " + numPackets);
                             out.write(fileInput, 0, count);
                             written = true;
+                            clientOutput.writeBytes("got" + "\n");
                             System.out.println("Packet " + packet + " got");
                             packet++;
                             if (packet == numPackets) {

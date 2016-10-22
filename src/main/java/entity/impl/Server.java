@@ -143,7 +143,7 @@ public class Server implements BasicInterface{
                 // Get the size of the file
                 long length = file.length();
                 int count;
-
+                String answer;
                 while ((count = in.read(byteArray)) > 0) {
                     System.out.println("Packet: " + currentPacket);
                     try {
@@ -152,7 +152,10 @@ public class Server implements BasicInterface{
                         e.printStackTrace();
                     }
                     out.write(byteArray, 0, count);
-                    currentPacket++;
+                    answer = serverInput.readLine();
+                    if(answer.equals("got")) {
+                        currentPacket++;
+                    }
                 }
                 System.out.println("File sent.");
 
