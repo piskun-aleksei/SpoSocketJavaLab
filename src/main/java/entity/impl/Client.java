@@ -60,15 +60,26 @@ public class Client implements BasicInterface{
                         System.out.println("File not found. ");
                     }
 
-                    int count;
+                    int count = 0;
                     int packet = 0;
-                    while ((count = in.read(fileInput)) > 0) {
-                        System.out.println("Packet: " + packet + " out of " + numPackets);
-                        out.write(fileInput, 0, count);
-                        System.out.println("Packet " + packet + " got");
-                        packet ++;
-                        if(packet == numPackets){
-                            break;
+                    boolean written = false;
+                    try {
+                        while ((count = in.read(fileInput)) > 0) {
+                            written = false;
+                            System.out.println("Packet: " + packet + " out of " + numPackets);
+                            out.write(fileInput, 0, count);
+                            written = true;
+                            System.out.println("Packet " + packet + " got");
+                            packet++;
+                            if (packet == numPackets) {
+                                break;
+                            }
+                        }
+                    }
+                    finally {
+                        System.out.println("BAM BAM BAM!");
+                        if(!written) {
+                            out.write(fileInput, 0, count);
                         }
                     }
                     System.out.println("File got.");

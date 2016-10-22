@@ -54,6 +54,7 @@ public class Server implements BasicInterface{
                     System.out.println("Received:" + receivedData);
                     execute(receivedData);
                 } catch (SocketTimeoutException | SocketException e) {
+                    //currentPacket++;
                     firstClient = false;
                     clientAddres = newClientAddress;
                     System.out.println("Lost connection to client. Waiting...");
@@ -111,6 +112,10 @@ public class Server implements BasicInterface{
                 System.out.println(newClientAddress);
                 if (clientAddres.equals(newClientAddress) && !expired && clientFileName.equals(command[1])) {
                     sendData("Continue");
+                    in.close();
+                    in = new FileInputStream(file);
+                    //currentPacket--;
+                    in.skip(currentPacket*8*1024);
                 } else {
                     System.out.println(newClientAddress);
                     clientFileName = command[1];
@@ -152,6 +157,9 @@ public class Server implements BasicInterface{
                 System.out.println("File sent.");
 
                 System.out.println("File closed.");
+                currentPacket = 0;
+                expired = true;
+
 
                 /*
                 int sentPackages = 0;
