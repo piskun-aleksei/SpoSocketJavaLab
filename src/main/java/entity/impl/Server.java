@@ -143,7 +143,6 @@ public class Server implements BasicInterface{
 
             if (file.isFile() & file.canRead()) {
                 byte[] byteArray = new byte[8*1024];
-
                 int numPackets = (int) Math.ceil(((double) file.length() / byteArray.length)) - currentPacket;
                 sendData(Integer.toString(numPackets));
                 // Get the size of the file
@@ -168,105 +167,54 @@ public class Server implements BasicInterface{
                 System.out.println("File closed.");
                 currentPacket = 0;
                 downloadComplete = true;
-
-
-                /*
-                int sentPackages = 0;
-                if(this.clientAddres == socket.getRemoteSocketAddress().toString() && this.clientFileName == command[1]){
-                    sentPackages = Integer.parseInt(serverInput.readLine());
-                }
-                int numPackets = (int)Math.ceil(((double)file.length()/byteArray.length)) - sentPackages;
-                this.clientFileName = command[1];
-                sendData(Integer.toString(numPackets));
-                FileInputStream fis = null;
-                try {
-                    fis = new FileInputStream(file);
-                } catch (FileNotFoundException e) {
-                    e.printStackTrace();
-                }
-                DataInputStream bis = new DataInputStream(fis);
-                for(int i = 0; i < numPackets -1; i++) {
-                    try {
-                        bis.read(byteArray, byteArray.length * sentPackages, byteArray.length);
-                        TimeUnit.MILLISECONDS.sleep(5);
-                        serverOutput.write(byteArray, 0, byteArray.length);
-                } catch (SocketTimeoutException | SocketException | InterruptedException e) {
-                    try {
-                        System.out.println("Lost connection to client. Waiting...");
-                        boolean userConnected = false;
-                        for(int check = 0; check < 30 || userConnected; check++){
-                            TimeUnit.SECONDS.sleep(1);
-                            if (this.checkClient()){
-                                userConnected = true;
-                            }
-
-                        }
-                        if (!this.checkClient()) {
-                            System.out.println("Server timeout");
-                            socket.close();
-                            isClosed = true;
-                        }
-                    }
-                    catch (InterruptedException e2){
-                        e2.printStackTrace();
-                    }
-                }
-                }
-                int lastPackage = (int)(file.length() - byteArray.length*(numPackets-1));
-                bis.read(byteArray, 0, lastPackage );
-                serverOutput.write(byteArray, 0, lastPackage);
-                bis.close();*/
             } else {
                 result = "File is not found/available";
                 sendData(result);
             }
-             /*catch (SocketTimeoutException | SocketException e) {
-
-
-                System.out.println("Lost connection to client. Waiting...");
-                // Get current time
-                long start = System.currentTimeMillis();
-
-
-                long elapsedTimeMillis = System.currentTimeMillis() - start;
-                float elapsedTimeSec = elapsedTimeMillis / 1000F;
-
-
-                    /*boolean userConnected = false;
-                    for(int check = 0; check < 30 || userConnected; check++){
-                        TimeUnit.SECONDS.sleep(1);
-                        if (this.checkClient()){
-                            userConnected = true;
-                        }
-
-                    }
-                    if (!this.checkClient()) {
-                        System.out.println("Server timeout");
-                        socket.close();
-                        isClosed = true;
-                    }
-
-
-            }*/
         } else if (command[0].toUpperCase().equals("UPLOAD")) {
-            char[] fileInput = new char[1024];
-            File file = new File(receivedFile);
-            file.createNewFile();
-            BufferedOutputStream bos = new BufferedOutputStream(new FileOutputStream(receivedFile));
-            String inputFromClient = serverInput.readLine();
-            Integer numPackets = tryParse(inputFromClient);
-            if (numPackets != null) {
-                for (int i = 0; i < numPackets; i++) {
-                    serverInput.read(fileInput);
-                    bos.write(String.valueOf(fileInput).trim().getBytes());
-                    Arrays.fill(fileInput, (char) 0);
-                }
-                bos.flush();
-                bos.close();
-                System.out.println("Received file");
-            } else {
-                System.out.println("Wrong argument:" + inputFromClient);
+            byte[] byteArray = new byte[8*1024];
+            receivedFile = "downloaded_" + command[1];
+            String isContinue = serverInput.readLine();
+            System.out.println(isContinue);
+            boolean append = false;
+            if (isContinue.equals("Continue")) {
+                System.out.println("Continuing!");
+                append = true;
             }
+            String inputFromClient = serverInput.readLine();
+            System.out.println(inputFromClient);
+            int numPackets = tryParse(inputFromClient);
+            try {
+                out = new FileOutputStream(receivedFile, append);
+            } catch (FileNotFoundException ex) {
+                System.out.println("File not found. ");
+            }
+            int count = 0;
+            int packet = 0;
+            boolean written = false;
+            in = socket.getInputStream();
+            try {
+                while ((count = in.read(byteArray)) > 0) {
+                    written = false;
+                    System.out.println("Packet: " + packet + " out of " + numPackets);
+                    out.write(byteArray, 0, count);
+                    written = true;
+                    serverOutput.writeBytes("got" + "\n");
+                    System.out.println("Packet " + packet + " got");
+                    packet++;
+                    if (packet == numPackets) {
+                        break;
+                    }
+                }
+            } finally {
+                System.out.println("BAM BAM BAM!");
+                if (!written) {
+                    out.write(byteArray, 0, count);
+                }
+            }
+            System.out.println("File got.");
+            out.close();
+            System.out.println("File closed.");
         } else
 
         {

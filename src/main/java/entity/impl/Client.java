@@ -6,10 +6,10 @@ import java.io.*;
 import java.net.Socket;
 import java.net.SocketException;
 import java.util.Arrays;
+import java.util.concurrent.TimeUnit;
 
 
-
-public class Client implements BasicInterface{
+public class Client implements BasicInterface {
     private static String receivedFile;
     private static boolean isClosed = false;
     private static BufferedReader clientInput = null;
@@ -18,12 +18,18 @@ public class Client implements BasicInterface{
     private Socket socket;
     private int sentPackages;
 
+    private boolean expired = false;
+    private boolean uploadComplete = false;
+    private String clientFileName;
 
-    public void start() throws IOException{
+    private int currentPacket;
+    private File file;
+
+    public void start() throws IOException {
         String input;
         String output;
-        byte[] fileInput = new byte[8*1024];
-        while(true) {
+        byte[] fileInput = new byte[8 * 1024];
+        while (true) {
             BufferedReader userInput = new BufferedReader(new InputStreamReader(System.in));
             System.out.println("Specify ip: ");
             String ip = userInput.readLine();
@@ -38,17 +44,15 @@ public class Client implements BasicInterface{
                 input = userInput.readLine();
                 clientOutput.writeBytes(input + "\n");
                 String clientCommand = input.split(" ")[0].toUpperCase();
-                if(!clientCommand.equals("DOWNLOAD") && !clientCommand.equals("UPLOAD")) {
+                if (!clientCommand.equals("DOWNLOAD") && !clientCommand.equals("UPLOAD")) {
                     output = clientInput.readLine();
                     System.out.println("Received: " + output);
-                }
-                else if(clientCommand.equals("DOWNLOAD")){
+                } else if (clientCommand.equals("DOWNLOAD")) {
                     receivedFile = "downloaded_" + input.split(" ")[1];
                     String isContinue = clientInput.readLine();
                     System.out.println(isContinue);
                     boolean append = false;
-                    if(isContinue.equals("Continue"))
-                    {
+                    if (isContinue.equals("Continue")) {
                         System.out.println("Continuing!");
                         append = true;
                     }
@@ -77,90 +81,67 @@ public class Client implements BasicInterface{
                                 break;
                             }
                         }
-                    }
-                    finally {
+                    } finally {
                         System.out.println("BAM BAM BAM!");
-                        if(!written) {
+                        if (!written) {
                             out.write(fileInput, 0, count);
                         }
                     }
                     System.out.println("File got.");
                     out.close();
                     System.out.println("File closed.");
-                    //DataInputStream dataInputStream = new DataInputStream(this.socket.getInputStream());
-                    /*File file = new File(receivedFile);
-                    file.createNewFile();
-                    Integer numPackets = 0;
-                    if(numPackets != 0){
-                        clientOutput.write(this.sentPackages);
-                    }
-                    BufferedOutputStream bos = new BufferedOutputStream(new FileOutputStream(receivedFile));
-                    String inputFromServer = clientInput.readLine();
-                    numPackets = tryParse(inputFromServer);
-                    if(numPackets != null) {
-                        System.out.println("Number of packages is " + numPackets);
-                        for (int i = 0; i < numPackets - 1; i++) {
-                            try {
-                                clientInput.read(fileInput);
-                                System.out.println("Received package number " + i);
-                                bos.write(String.valueOf(fileInput).getBytes());
-                                Arrays.fill(fileInput, (char) 0);
-                            } catch (SocketTimeoutException | SocketException e) {
-                                try {
-                                    System.out.println("Lost connection to client. Waiting...");
-                                    TimeUnit.SECONDS.sleep(30);
-                                    if (!this.checkServer()) {
-                                        this.sentPackages = i;
-                                        System.out.println("Server timeout");
-                                        this.socket.close();
-                                        isClosed = true;
-                                    }
-                                }
-                                catch (InterruptedException e2){
-                                    e2.printStackTrace();
-                                }
-                            }
+                } else {
+                    String fileName = input.split(" ")[1];
+                        if (clientFileName != null && !expired && clientFileName.equals(fileName) && !uploadComplete) {
+                            clientOutput.writeBytes("Continue");
+                            in.close();
+                            in = new FileInputStream(file);
+                            //currentPacket--;
+                            in.skip(currentPacket * 8 * 1024);
+                        } else {
+                            uploadComplete = false;
+                            clientFileName = fileName;
+                            file = new File(fileName);
+                            clientOutput.writeBytes("NewFile" + "\n");
+                            currentPacket = 0;
+                            //in.close();
+                            in = new FileInputStream(file);
                         }
-                        clientInput.read(fileInput);
-                        bos.write(String.valueOf(fileInput).trim().getBytes());
-                        bos.flush();
-                        bos.close();
-                        System.out.println("Received file ");
-                    }
-                    else{
-                        System.out.println(inputFromServer);
-                    }*/
-                }
-                else {
-                    File file = new File(input.split(" ")[1]);
-                    if(file.isFile() & file.canRead()) {
-                        byte[] byteArray = new byte[1024];
-                        Arrays.fill(byteArray, (byte)0);
-                        int numPackets = (int)Math.ceil(((double)file.length()/byteArray.length));
+                    if (file.isFile() & file.canRead()) {
+                        byte[] byteArray = new byte[8 * 1024];
+                        int numPackets = (int) Math.ceil(((double) file.length() / byteArray.length)) - currentPacket;
+                        try {
+                            out = socket.getOutputStream();
+                        } catch (FileNotFoundException ex) {
+                            System.out.println("File not found. ");
+                        }
                         clientOutput.writeBytes(Integer.toString(numPackets) + "\n");
                         clientOutput.flush();
-                        FileInputStream fis = null;
-                        try {
-                            fis = new FileInputStream(file);
-                        } catch (FileNotFoundException e) {
-                            e.printStackTrace();
+                        // Get the size of the file
+                        long length = file.length();
+                        int count;
+                        String answer;
+                        while ((count = in.read(byteArray)) > 0) {
+                            System.out.println("Packet: " + currentPacket);
+                            try {
+                                TimeUnit.MILLISECONDS.sleep(10);
+                            } catch (InterruptedException e) {
+                                e.printStackTrace();
+                            }
+                            out.write(byteArray, 0, count);
+                            answer = clientInput.readLine();
+                            if (answer.equals("got")) {
+                                currentPacket++;
+                            }
                         }
-                        DataInputStream bis = new DataInputStream(fis);
-                        for(int i = 0; i < numPackets - 1; i++) {
-                            bis.read(byteArray, 0, byteArray.length);
-                            clientOutput.write(byteArray, 0, byteArray.length);
-                            clientOutput.flush();
-                        }
-                        int lastPackage = (int)(file.length() - byteArray.length*(numPackets-1));
-                        bis.read(byteArray, 0, lastPackage );
-                        clientOutput.write(byteArray, 0, lastPackage);
-                        System.out.println("File was send");
-                        bis.close();
-                    }
-                    else {
+                        System.out.println("File sent.");
+
+                        System.out.println("File closed.");
+                        currentPacket = 0;
+                        uploadComplete = true;
+                    } else {
                         String result = "File is not found/available";
-                        clientOutput.writeBytes(result + "\n");
-                        clientOutput.flush();
+                        clientOutput.writeBytes(result);
                     }
                 }
             }
@@ -176,12 +157,12 @@ public class Client implements BasicInterface{
             return null;
         }
     }
-    private boolean checkServer() throws IOException{
+
+    private boolean checkServer() throws IOException {
         boolean result = true;
         try {
             clientInput.readLine();
-        }
-        catch (SocketException e){
+        } catch (SocketException e) {
             result = false;
         }
         return result;
