@@ -5,6 +5,7 @@ import entity.BasicInterface;
 import java.io.*;
 import java.net.Socket;
 import java.net.SocketException;
+import java.sql.Time;
 import java.util.Arrays;
 import java.util.concurrent.TimeUnit;
 
@@ -59,32 +60,34 @@ public class Client implements BasicInterface {
                     String inputFromServer = clientInput.readLine();
                     System.out.println(inputFromServer);
                     int numPackets = tryParse(inputFromServer);
+                    inputFromServer = clientInput.readLine();
+                    int fileLength = tryParse(inputFromServer);
                     try {
                         out = new FileOutputStream(receivedFile, append);
                     } catch (FileNotFoundException ex) {
                         System.out.println("File not found. ");
                     }
 
-                    int count = 0;
+                    int count;
                     int packet = 0;
-                    boolean written = false;
-                    try {
-                        while ((count = in.read(fileInput)) > 0) {
-                            written = false;
-                            System.out.println("Packet: " + packet + " out of " + numPackets);
+                    int whole = 0;
+                    while ((count = in.read(fileInput, 0, fileInput.length)) > 0) {
+                        out.write(fileInput, 0, count);
+                        int temp = 0;
+                        whole += count;
+                        temp += count;
+                        while (temp < (((packet + 1) < numPackets) ? fileInput.length : fileLength - packet * fileInput.length)) {
+                            count = in.read(fileInput, 0, fileInput.length - temp);
+                            temp += count;
+                            whole += count;
+                            System.out.println(temp);
                             out.write(fileInput, 0, count);
-                            written = true;
-                            clientOutput.writeBytes("got" + "\n");
-                            System.out.println("Packet " + packet + " got");
-                            packet++;
-                            if (packet == numPackets) {
-                                break;
-                            }
                         }
-                    } finally {
-                        System.out.println("BAM BAM BAM!");
-                        if (!written) {
-                            out.write(fileInput, 0, count);
+                        System.out.println("Got " + temp + " bytes");
+                        System.out.println("Packet " + packet + " got, and in total " + whole + " from " + fileLength);
+                        packet++;
+                        if (packet == numPackets) {
+                            break;
                         }
                     }
                     System.out.println("File got.");
@@ -92,21 +95,21 @@ public class Client implements BasicInterface {
                     System.out.println("File closed.");
                 } else {
                     String fileName = input.split(" ")[1];
-                        if (clientFileName != null && !expired && clientFileName.equals(fileName) && !uploadComplete) {
-                            clientOutput.writeBytes("Continue");
-                            in.close();
-                            in = new FileInputStream(file);
-                            //currentPacket--;
-                            in.skip(currentPacket * 8 * 1024);
-                        } else {
-                            uploadComplete = false;
-                            clientFileName = fileName;
-                            file = new File(fileName);
-                            clientOutput.writeBytes("NewFile" + "\n");
-                            currentPacket = 0;
-                            //in.close();
-                            in = new FileInputStream(file);
-                        }
+                    if (clientFileName != null && !expired && clientFileName.equals(fileName) && !uploadComplete) {
+                        clientOutput.writeBytes("Continue");
+                        in.close();
+                        in = new FileInputStream(file);
+                        //currentPacket--;
+                        in.skip(currentPacket * 8 * 1024);
+                    } else {
+                        uploadComplete = false;
+                        clientFileName = fileName;
+                        file = new File(fileName);
+                        clientOutput.writeBytes("NewFile" + "\n");
+                        currentPacket = 0;
+                        //in.close();
+                        in = new FileInputStream(file);
+                    }
                     if (file.isFile() & file.canRead()) {
                         byte[] byteArray = new byte[8 * 1024];
                         int numPackets = (int) Math.ceil(((double) file.length() / byteArray.length)) - currentPacket;

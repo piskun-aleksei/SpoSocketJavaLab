@@ -14,7 +14,7 @@ import java.util.Arrays;
 import java.util.Date;
 import java.util.concurrent.TimeUnit;
 
-public class Server implements BasicInterface{
+public class Server implements BasicInterface {
 
     private static boolean isClosed = false;
     private static String receivedFile;
@@ -111,7 +111,7 @@ public class Server implements BasicInterface{
         } else if (command[0].toUpperCase().equals("CLOSE")) {
             isClosed = true;
         } else if (command[0].toUpperCase().equals("DOWNLOAD")) {
-            if(!firstClient) {
+            if (!firstClient) {
                 System.out.println(clientAddres);
                 System.out.println(newClientAddress);
                 if (clientAddres.equals(newClientAddress) && !expired && clientFileName.equals(command[1]) && !downloadComplete) {
@@ -119,7 +119,7 @@ public class Server implements BasicInterface{
                     in.close();
                     in = new FileInputStream(file);
                     //currentPacket--;
-                    in.skip(currentPacket*8*1024);
+                    in.skip(currentPacket * 8 * 1024);
                 } else {
                     downloadComplete = false;
                     System.out.println(newClientAddress);
@@ -130,8 +130,7 @@ public class Server implements BasicInterface{
                     in.close();
                     in = new FileInputStream(file);
                 }
-            }
-            else {
+            } else {
                 downloadComplete = false;
                 System.out.println(newClientAddress);
                 clientFileName = command[1];
@@ -142,25 +141,15 @@ public class Server implements BasicInterface{
             }
 
             if (file.isFile() & file.canRead()) {
-                byte[] byteArray = new byte[8*1024];
+                byte[] byteArray = new byte[8 * 1024];
                 int numPackets = (int) Math.ceil(((double) file.length() / byteArray.length)) - currentPacket;
                 sendData(Integer.toString(numPackets));
-                // Get the size of the file
-                long length = file.length();
+                sendData(Long.toString(file.length()));
                 int count;
-                String answer;
                 while ((count = in.read(byteArray)) > 0) {
                     System.out.println("Packet: " + currentPacket);
-                    try {
-                        TimeUnit.MILLISECONDS.sleep(10);
-                    } catch (InterruptedException e) {
-                        e.printStackTrace();
-                    }
                     out.write(byteArray, 0, count);
-                    answer = serverInput.readLine();
-                    if(answer.equals("got")) {
-                        currentPacket++;
-                    }
+                    currentPacket++;
                 }
                 System.out.println("File sent.");
 
@@ -172,7 +161,7 @@ public class Server implements BasicInterface{
                 sendData(result);
             }
         } else if (command[0].toUpperCase().equals("UPLOAD")) {
-            byte[] byteArray = new byte[8*1024];
+            byte[] byteArray = new byte[8 * 1024];
             receivedFile = "downloaded_" + command[1];
             String isContinue = serverInput.readLine();
             System.out.println(isContinue);
