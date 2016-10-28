@@ -21,8 +21,10 @@ public class Server implements BasicInterface {
     private DataOutputStream serverOutput;
     private BufferedReader serverInput;
     private InputStream in;
+
     private OutputStream out;
 
+    int whole;
     private int currentPacket = 0;
 
     private File file;
@@ -42,6 +44,7 @@ public class Server implements BasicInterface {
         ServerSocket serverSocket = new ServerSocket(6790);
 
         while (true) {
+            isClosed = false;
             socket = serverSocket.accept();
 
             newClientAddress = socket.getRemoteSocketAddress().toString().substring(0, socket.getRemoteSocketAddress().toString().lastIndexOf(":"));
@@ -114,20 +117,19 @@ public class Server implements BasicInterface {
             if (!firstClient) {
                 System.out.println(clientAddres);
                 System.out.println(newClientAddress);
-                if (clientAddres.equals(newClientAddress) && !expired && clientFileName.equals(command[1]) && !downloadComplete) {
+                if (clientAddres.equals(newClientAddress) && clientFileName.equals(command[1]) && !downloadComplete) {
                     sendData("Continue");
-                    in.close();
                     in = new FileInputStream(file);
                     //currentPacket--;
-                    in.skip(currentPacket * 8 * 1024);
+                    in.skip(whole);
                 } else {
                     downloadComplete = false;
                     System.out.println(newClientAddress);
                     clientFileName = command[1];
                     file = new File(clientFileName);
+                    whole = 0;
                     sendData("NewFile");
                     currentPacket = 0;
-                    in.close();
                     in = new FileInputStream(file);
                 }
             } else {
@@ -135,6 +137,7 @@ public class Server implements BasicInterface {
                 System.out.println(newClientAddress);
                 clientFileName = command[1];
                 file = new File(clientFileName);
+                whole = 0;
                 sendData("NewFile");
                 currentPacket = 0;
                 in = new FileInputStream(file);
@@ -144,15 +147,15 @@ public class Server implements BasicInterface {
                 byte[] byteArray = new byte[8 * 1024];
                 int numPackets = (int) Math.ceil(((double) file.length() / byteArray.length)) - currentPacket;
                 sendData(Integer.toString(numPackets));
-                sendData(Long.toString(file.length()));
+                sendData(Long.toString(file.length() - whole));
                 int count;
                 while ((count = in.read(byteArray)) > 0) {
                     System.out.println("Packet: " + currentPacket);
                     out.write(byteArray, 0, count);
-                    currentPacket++;
+                    whole+=count;
                 }
                 System.out.println("File sent.");
-
+                in.close();
                 System.out.println("File closed.");
                 currentPacket = 0;
                 downloadComplete = true;
@@ -170,35 +173,36 @@ public class Server implements BasicInterface {
                 System.out.println("Continuing!");
                 append = true;
             }
-            String inputFromClient = serverInput.readLine();
-            System.out.println(inputFromClient);
-            int numPackets = tryParse(inputFromClient);
+            String inputFromServer = serverInput.readLine();
+            System.out.println(inputFromServer);
+            int numPackets = tryParse(inputFromServer);
+            inputFromServer = serverInput.readLine();
+            int fileLength = tryParse(inputFromServer);
             try {
                 out = new FileOutputStream(receivedFile, append);
             } catch (FileNotFoundException ex) {
                 System.out.println("File not found. ");
             }
-            int count = 0;
+
+            int count;
             int packet = 0;
-            boolean written = false;
-            in = socket.getInputStream();
-            try {
-                while ((count = in.read(byteArray)) > 0) {
-                    written = false;
-                    System.out.println("Packet: " + packet + " out of " + numPackets);
+            while ((count = in.read(byteArray, 0, byteArray.length)) > 0) {
+                out.write(byteArray, 0, count);
+                int temp = 0;
+                whole += count;
+                temp += count;
+                while (temp < (((packet + 1) < numPackets) ? byteArray.length : fileLength - packet * byteArray.length)) {
+                    count = in.read(byteArray, 0, byteArray.length - temp);
+                    temp += count;
+                    whole += count;
+                    System.out.println(temp);
                     out.write(byteArray, 0, count);
-                    written = true;
-                    serverOutput.writeBytes("got" + "\n");
-                    System.out.println("Packet " + packet + " got");
-                    packet++;
-                    if (packet == numPackets) {
-                        break;
-                    }
                 }
-            } finally {
-                System.out.println("BAM BAM BAM!");
-                if (!written) {
-                    out.write(byteArray, 0, count);
+                System.out.println("Got " + temp + " bytes");
+                System.out.println("Packet " + packet + " got, and in total " + whole + " from " + fileLength);
+                packet++;
+                if (packet == numPackets) {
+                    break;
                 }
             }
             System.out.println("File got.");
